@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shopee
+      POSTGRES_PASSWORD: shopee_dev
+      POSTGRES_DB: shopee_aff
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopee -d shopee_aff"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://shopee:shopee_dev@db:5432/shopee_aff?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-dev-auth-secret-change-in-production-32c}
+      SHOPEE_APP_ID: ${SHOPEE_APP_ID:-}
+      SHOPEE_SECRET: ${SHOPEE_SECRET:-}
+      SHOPEE_API_BASE: https://open-api.affiliate.shopee.co.id/graphql
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

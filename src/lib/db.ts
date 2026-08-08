@@ -1,6 +1,6 @@
-import { type PoolConfig } from "@neondatabase/serverless";
-import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from ".prisma/client";
+import type { PoolConfig } from "@neondatabase/serverless";
+import type { PrismaNeon as PrismaNeonType } from "@prisma/adapter-neon";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,21 +12,25 @@ function createPrismaClient(): PrismaClient {
     throw new Error("DATABASE_URL environment variable is required");
   }
 
-  const neonConfig: PoolConfig = {
-    connectionString: databaseUrl,
-    connectionTimeoutMillis: 10000,
-    max: 10,
-  };
+  const isNeon = databaseUrl.includes("neon.tech");
 
-  const adapter = new PrismaNeon(neonConfig);
+  if (isNeon) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeon } = require("@prisma/adapter-neon") as { PrismaNeon: typeof PrismaNeonType };
+    const neonConfig: PoolConfig = {
+      connectionString: databaseUrl,
+      connectionTimeoutMillis: 10000,
+      max: 10,
+    };
+    const adapter = new PrismaNeon(neonConfig);
+    return new PrismaClient({ adapter });
+  }
 
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  });
 }
 
-/**
- * Lazy Prisma client — only instantiated on first access, not at import time.
- * This allows the module to be imported during build without DATABASE_URL.
- */
 function getPrismaClient(): PrismaClient {
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = createPrismaClient();
@@ -34,7 +38,6 @@ function getPrismaClient(): PrismaClient {
   return globalForPrisma.prisma;
 }
 
-// Proxy that defers instantiation until a property is accessed
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop: string) {
     const client = getPrismaClient();
