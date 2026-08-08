@@ -1,0 +1,78 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/.prisma/client"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider  = "postgres"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  aiApiKey     String?
+  createdAt    DateTime @default(now())
+}
+
+model ShopeeCredential {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  appId     String
+  secret    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  channel   String
+  subIds    String[]
+  createdAt DateTime @default(now())
+  links     Link[]
+
+  @@index([userId])
+}
+
+model Link {
+  id          String    @id @default(cuid())
+  userId      String
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  originUrl   String
+  shortLink   String
+  subIds      String[]
+  productInfo Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([campaignId])
+}
+
+model ConversionSnapshot {
+  id                    String   @id @default(cuid())
+  userId                String
+  conversionId          String
+  purchaseTime          DateTime
+  clickTime             DateTime
+  totalCommission       String
+  sellerCommission      String
+  shopeeCommissionCapped String
+  netCommission         String
+  buyerType             String
+  utmContent            String
+  device                String
+  orderStatus           String
+  campaignType          String
+  orders                Json
+  fetchedAt             DateTime @default(now())
+
+  @@unique([userId, conversionId])
+  @@index([userId])
+  @@index([purchaseTime])
+}
